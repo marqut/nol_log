@@ -1,0 +1,108 @@
+option explicit
+
+dim fso
+set fso = CreateObject("Scripting.FileSystemObject")
+dim tsInput
+dim tsOutput
+
+Dim wsh
+Set wsh = CreateObject("WScript.Shell")
+dim outPath
+outPath = wsh.SpecialFolders("Desktop")
+dim outfilePath
+
+dim args
+Set args = WScript.Arguments
+
+if not fso.FileExists(args.item(0)) then
+	msgbox("ファイルを投げ込んでください")
+	wsh.quit(16)
+end if
+
+outfilePath = outPath & "¥" & fso.getBaseName(args.item(0)) & ".csv"
+
+set tsInput = fso.openTextFile(args.item(0), 1, false , -1)
+set tsOutput = fso.createTextFile(outfilePath)
+
+
+dim readstr
+dim charName
+dim message
+dim sisetsu
+dim logType
+logType = "ゴミ？"  ' わざとゴミ？にしておくことでヘッダを全部ゴミとしてしまう
+do until tsInput.AtEndOfStream
+	readstr = tsInput.readLine()
+	if instr(readstr,"<FONT") = 1 then
+
+		if instr(readstr,"#F0C084") > 1 then
+			logType = "システム"
+		elseif instr(readstr,"#FFFFFF") > 1 then
+			logType = "周囲"
+		elseif instr(readstr,"#C69CE0") > 1 then
+			logType = "私設"
+		elseif instr(readstr,"#8CF6FF") > 1 then
+			logType = "対話"
+		elseif instr(readstr,"#C0F890") > 1 then
+			logType = "徒党"
+		elseif instr(readstr,"#7D82F0") > 1 then
+			logType = "一門"
+		elseif instr(readstr,"#BEBEBE") > 1 then
+			logType = "所作"
+		elseif instr(readstr,"#A4DAD6") > 1 then 
+			logType = "自由所作"
+		end if
+
+		' 非ヘッダ行への整形処理
+			readstr = replace(readstr,"</FONT>","")
+			readstr = replace(readstr,"<BR>             ","")
+
+			'<FONT COLOR="#xxxxxx">
+			readstr = mid(readstr,23,len(readstr))
+			
+			'<IMG....
+			dim rex
+			Set rex = New RegExp              ' 文字列検索・置換用オブジェクトの作成
+			rex.Global = True                 ' 文字列全体を検索するように指定
+			
+			rex.Pattern = "<IMG .*>"
+			rex.Replace readstr, ""
+
+		if logType <> "システム" and logType <> "所作" _
+			and logType <> "自由所作" and logType <> "ゴミ？" then
+			
+			'キャラ名分離
+			charName = trim(left(readstr, 7))
+			readstr = mid(readstr,8,len(readstr))
+
+			' : で分割して、その左を私設名とみなす
+			dim temp
+			temp = split(readstr,":",3)
+			if ubound(temp) = 2 then
+				'私設etcつき
+				readstr = "[" & temp(1) & "," & temp(2)
+			else
+				readstr = "," & temp(1)
+			end if	
+
+			readstr = charName & "," & readstr
+
+
+		end if
+	
+	elseif instr(readstr,"<A HREF=") = 1 then
+		' キャプチャしましたよログ
+		logType = "キャプチャ"
+	else
+			logType = "ゴミ？"
+	end if
+
+	tsOutput.write(logType & ",")
+	tsOutput.writeLine(readstr)
+
+loop
+
+tsOutput.close
+tsInput.close
+msgbox("できました")
+
